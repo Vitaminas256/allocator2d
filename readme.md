@@ -21,7 +21,7 @@ void foo(){
 ```
 
 ## Overview
-1. Try to allocate may rects on a clean area.
+1. Try to allocate many rects on a clean area.
 2. Deallocate some of them
 3. Allocate small fragments(color in white)
 4. Deallocate some small fragments 
@@ -30,7 +30,7 @@ void foo(){
 
 2048*2048 Test
 
-| 1                                                                             | 2                                                                               | 3                                                                           | 4                                                                                     |
+| S1                                                                             | S2                                                                               | S3                                                                           | S4                                                                                     |
 |-------------------------------------------------------------------------------|---------------------------------------------------------------------------------|-----------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
 | ![HighFragment_01_allocated.png](readme_assets/HighFragment_01_allocated.png) | ![HighFragment_02_fragmented.png](readme_assets/HighFragment_02_fragmented.png) | ![HighFragment_03_refilled.png](readme_assets/HighFragment_03_refilled.png) | ![HighFragment_04_partial_clear.png](readme_assets/HighFragment_04_partial_clear.png) |
 
@@ -38,7 +38,7 @@ void foo(){
 
 1024*1024 Test
 
-| 1                                                                     | 2                                                                       | 3                                                                   | 4                                                                             |
+| S1                                                                     | S2                                                                       | S3                                                                   | S4                                                                             |
 |-----------------------------------------------------------------------|-------------------------------------------------------------------------|---------------------------------------------------------------------|-------------------------------------------------------------------------------|
 | ![Standard_01_allocated.png](readme_assets/Standard_01_allocated.png) | ![Standard_02_fragmented.png](readme_assets/Standard_02_fragmented.png) | ![Standard_03_refilled.png](readme_assets/Standard_03_refilled.png) | ![Standard_04_partial_clear.png](readme_assets/Standard_04_partial_clear.png) |
 
