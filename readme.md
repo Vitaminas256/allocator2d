@@ -31,6 +31,24 @@ void foo(){
 * You can play with the test with code in main.cpp
 
 HighFragment Test
+<div style="display: flex; gap: 10px;">
+    <div style="flex: 1;">
+        <h4>文件 A (文本示例)</h4>
+        <p>这里是第一个文件的描述或内容。它可以自动调整宽度。</p>
+    </div>
+
+    <div style="flex: 1;">
+        <h4>文件 B (图片示例)</h4>
+        <img src="https://via.placeholder.com/150" alt="示例图片" width="100%">
+    </div>
+</div>
+
+<p align="center">
+  <img src="readme_assets/HighFragment_01_allocated.png" width="45%" />
+  <img src="readme_assets/HighFragment_02_fragmented.png" width="45%" /> 
+  <img src="readme_assets/HighFragment_03_refilled.png" width="45%" /> 
+  <img src="readme_assets/HighFragment_04_partial_clear.png" width="45%" /> 
+</p>
 
 | S1                                               | S2                                                | S3                                              | S4                                                   |
 |--------------------------------------------------|---------------------------------------------------|-------------------------------------------------|------------------------------------------------------|

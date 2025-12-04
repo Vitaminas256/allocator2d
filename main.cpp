@@ -1,30 +1,34 @@
-// 引入 STB 库用于写入图像
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
+#include <version>
+//Used to pass CI
+
+#ifdef __cpp_lib_print
 #include <string>
 #include <cstdint>
-#include <print>
 #include <algorithm>
 #include <random>
+#include <print>
+#endif
 
 #include "include/mo_yanxi/allocator_2d.hpp"
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 //----------------------------------------------------------------------------------------------------
 //  -TEST USAGE-    -TEST USAGE-    -TEST USAGE-    -TEST USAGE-    -TEST USAGE-    -TEST USAGE-
 //----------------------------------------------------------------------------------------------------
-
-struct BlockInfo {
+#ifdef __cpp_lib_print
+struct block_info {
     mo_yanxi::math::vector2<std::uint32_t> pos;
     mo_yanxi::math::vector2<std::uint32_t> size;
     std::uint8_t r, g, b;
 };
 
-class Canvas {
+class canvas {
     int width, height;
     std::vector<std::uint8_t> pixels;
 
 public:
-    Canvas(int w, int h) : width(w), height(h), pixels(w * h * 3, 0) {}
+    canvas(int w, int h) : width(w), height(h), pixels(w * h * 3, 0) {}
 
     void draw_rect(int x, int y, int w, int h, std::uint8_t r, std::uint8_t g, std::uint8_t b) {
         for (int j = y; j < y + h; ++j) {
@@ -44,9 +48,9 @@ public:
 
     void save(const std::string& filename) {
         if (stbi_write_png(filename.c_str(), width, height, 3, pixels.data(), width * 3)) {
-            std::println("  -> 已保存快照: {}", filename);
+            std::println("  -> Snapshot saved: {}", filename);
         } else {
-            std::println(stderr, "  -> 错误: 无法保存快照 {}", filename);
+            std::println(stderr, "  -> Error: Failed to save snapshot {}", filename);
         }
     }
 
@@ -55,26 +59,26 @@ public:
     }
 };
 
-class AllocatorTester {
+class allocator_tester {
 public:
-    struct Config {
+    struct config {
         std::string test_name;
         std::uint32_t map_size;
-        int max_fill_attempts; // 最大尝试填充次数
+        int max_fill_attempts; // Max fill attempts
         std::pair<std::uint32_t, std::uint32_t> size_range; // {min, max}
     };
 
 private:
-    Config config_;
+    config config_;
     mo_yanxi::allocator2d<> alloc_;
-    Canvas canvas_;
-    std::vector<BlockInfo> active_blocks_;
+    canvas canvas_;
+    std::vector<block_info> active_blocks_;
     std::mt19937 rng_;
     std::uniform_int_distribution<std::uint32_t> size_dist_;
     std::uniform_int_distribution<int> color_dist_;
 
 public:
-    AllocatorTester(Config config)
+    allocator_tester(config config)
         : config_(std::move(config)),
           alloc_(mo_yanxi::math::vector2<std::uint32_t>{config_.map_size, config_.map_size}),
           canvas_(config_.map_size, config_.map_size),
@@ -83,8 +87,8 @@ public:
           color_dist_(50, 255)
     {
         std::println("========================================");
-        std::println("测试套件初始化: {}", config_.test_name);
-        std::println("画布尺寸: {0}x{0}, 块大小范围: [{1}, {2}]",
+        std::println("Test Suite Initialized: {}", config_.test_name);
+        std::println("Canvas Size: {0}x{0}, Block Size Range: [{1}, {2}]",
             config_.map_size, config_.size_range.first, config_.size_range.second);
         std::println("========================================");
     }
@@ -95,7 +99,7 @@ public:
         phase_3_refill();
         phase_4_partial_clear();
         phase_5_full_clear_and_verify();
-        std::println("\n测试 [{}] 完成。\n", config_.test_name);
+        std::println("\nTest [{}] Completed.\n", config_.test_name);
     }
 
 private:
@@ -104,7 +108,7 @@ private:
     }
 
     void phase_1_fill() {
-        std::println("[阶段 1] 随机分配填充...");
+        std::println("[Phase 1] Random Allocation Fill...");
         int count = 0;
 
         std::size_t used_area{};
@@ -124,18 +128,18 @@ private:
                 canvas_.draw_rect(result->x, result->y, w, h, r, g, b);
                 count++;
             } else {
-                // 如果连续多次分配失败，可以提前退出，或者仅依赖 max_fill_attempts
-                // 这里为了填满尽量多，我们继续尝试
+                // If allocation fails multiple times, we could exit early,
+                // but we continue to try filling as much as possible.
             }
         }
-        std::println("  -> 共分配了 {} 个块", count);
+        std::println("  -> Allocated {} blocks", count);
         std::println("  -> Area Check: {} + {} = {} ?= {}", used_area, alloc_.remain_area(), used_area +  alloc_.remain_area(), alloc_.extent().area());
         canvas_.save(get_filename("01_allocated.png"));
     }
 
     void phase_2_fragment() {
-        std::println("[阶段 2] 随机释放 50% 的块以制造碎片...");
-        std::vector<BlockInfo> remaining_blocks;
+        std::println("[Phase 2] Randomly freeing 50% of blocks to create fragmentation...");
+        std::vector<block_info> remaining_blocks;
         std::ranges::shuffle(active_blocks_, rng_);
 
         std::size_t remove_count = active_blocks_.size() / 2;
@@ -144,7 +148,7 @@ private:
             if (i < remove_count) {
                 bool success = alloc_.deallocate(active_blocks_[i].pos);
                 if (!success) {
-                    std::println(stderr, "  -> 错误: 释放失败于 {},{}", active_blocks_[i].pos.x, active_blocks_[i].pos.y);
+                    std::println(stderr, "  -> Error: Failed to deallocate at {},{}", active_blocks_[i].pos.x, active_blocks_[i].pos.y);
                 } else {
                     auto& b = active_blocks_[i];
                     canvas_.draw_rect(b.pos.x, b.pos.y, b.size.x, b.size.y, 0, 0, 0);
@@ -161,12 +165,12 @@ private:
     }
 
     void phase_3_refill() {
-        std::println("[阶段 3] 尝试使用较小的块重新填满空隙...");
-        // 使用更小的尺寸分布来测试缝隙填充能力
+        std::println("[Phase 3] Attempting to refill gaps with smaller blocks...");
+        // Use a smaller size distribution to test gap filling capability
         std::uniform_int_distribution<std::uint32_t> small_size_dist(5, config_.size_range.first + 5);
 
         int success_count = 0;
-        int attempts = config_.max_fill_attempts / 2; // 尝试次数
+        int attempts = config_.max_fill_attempts / 2;
 
         // canvas_.clear();
         std::size_t used_area{alloc_.extent().area() - alloc_.remain_area()};
@@ -180,7 +184,7 @@ private:
             auto result = alloc_.allocate(size);
             if (result) {
                 used_area += w * h;
-                // 亮白色表示新分配
+                // Bright white indicates new allocation
                 std::uint8_t r = 255, g = 255, b = 255;
                 canvas_.draw_rect(result->x, result->y, w, h, r, g, b);
                 active_blocks_.push_back({*result, size, r, g, b});
@@ -195,14 +199,14 @@ private:
 
         std::println("  -> Area Check: {} + {} = {} ?= {}", used_area, alloc_.remain_area(), used_area +  alloc_.remain_area(), alloc_.extent().area());
 
-        std::println("  -> 成功重新分配了 {} 个新块", success_count);
+        std::println("  -> Successfully re-allocated {} new blocks", success_count);
         canvas_.save(get_filename("03_refilled.png"));
     }
 
     void phase_4_partial_clear() {
-        std::println("[阶段 4] 再次随机释放 30% 的块...");
+        std::println("[Phase 4] Randomly freeing 30% of blocks again...");
         std::ranges::shuffle(active_blocks_, rng_);
-        std::vector<BlockInfo> remaining_blocks;
+        std::vector<block_info> remaining_blocks;
 
         std::size_t used_area{alloc_.extent().area() - alloc_.remain_area()};
         std::size_t remove_count = static_cast<std::size_t>(active_blocks_.size() * 0.3);
@@ -226,36 +230,36 @@ private:
     }
 
     void phase_5_full_clear_and_verify() {
-        std::println("[阶段 5] 执行完全清除与最终验证...");
+        std::println("[Phase 5] Performing full clear and final verification...");
 
         for(const auto& b : active_blocks_) {
             if(!alloc_.deallocate(b.pos)) {
-                 std::println(stderr, "  -> 致命错误: 无法释放位于 {},{} 的块", b.pos.x, b.pos.y);
+                 std::println(stderr, "  -> Fatal Error: Failed to release block at {},{}", b.pos.x, b.pos.y);
             }
             canvas_.draw_rect(b.pos.x, b.pos.y, b.size.x, b.size.y, 0, 0, 0);
         }
         active_blocks_.clear();
 
-        // 验证状态
+        // Verify status
         std::uint32_t total_area = config_.map_size * config_.map_size;
-        std::println("  -> 最终状态检查:");
-        std::println("  -> 期望剩余面积: {}", total_area);
-        std::println("  -> 实际剩余面积: {}", alloc_.remain_area());
+        std::println("  -> Final status check:");
+        std::println("  -> Expected remaining area: {}", total_area);
+        std::println("  -> Actual remaining area:   {}", alloc_.remain_area());
 
         if (alloc_.remain_area() == total_area) {
-            std::println("  -> [通过] 内存已完全回收，无泄漏。");
+            std::println("  -> [PASS] Memory fully reclaimed, no leaks.");
 
-            // 完美合并验证
+            // Perfect merge verification
             auto huge_block = alloc_.allocate({config_.map_size, config_.map_size});
             if (huge_block) {
-                std::println("  -> [通过] 完美合并验证：成功分配全图尺寸块。");
-                canvas_.draw_rect(0, 0, config_.map_size, config_.map_size, 0, 255, 0); // 绿色
+                std::println("  -> [PASS] Perfect merge verification: Successfully allocated full map block.");
+                canvas_.draw_rect(0, 0, config_.map_size, config_.map_size, 0, 255, 0); // Green
             } else {
-                std::println("  -> [失败] 完美合并验证：无法分配全图块（存在碎片合并问题）。");
-                canvas_.draw_rect(0, 0, config_.map_size, config_.map_size, 255, 0, 0); // 红色
+                std::println("  -> [FAIL] Perfect merge verification: Cannot allocate full map block (fragmentation merge issue).");
+                canvas_.draw_rect(0, 0, config_.map_size, config_.map_size, 255, 0, 0); // Red
             }
         } else {
-            std::println("  -> [失败] 内存泄漏检测：面积不匹配，差值 {}", total_area - alloc_.remain_area());
+            std::println("  -> [FAIL] Memory leak detection: Area mismatch, difference {}", total_area - alloc_.remain_area());
         }
 
         canvas_.save(get_filename("05_full_clear.png"));
@@ -263,28 +267,38 @@ private:
     }
 };
 
-int main() {
+void test_fn(){
     {
-        AllocatorTester::Config config{
+        allocator_tester::config config{
             .test_name = "Standard",
             .map_size = 2048,
             .max_fill_attempts = 40000,
             .size_range = {32, 256}
         };
-        AllocatorTester tester(config);
+        allocator_tester tester(config);
         tester.run();
     }
 
     {
-        AllocatorTester::Config config{
+        allocator_tester::config config{
             .test_name = "HighFragment",
             .map_size = 1024,
             .max_fill_attempts = 40000,
             .size_range = {4, 16}
         };
-        AllocatorTester tester(config);
+        allocator_tester tester(config);
         tester.run();
     }
+
+}
+
+#endif
+
+
+int main() {
+#ifdef __cpp_lib_print
+    test_fn();
+#endif
 
     mo_yanxi::allocator2d_checked a{{256, 256}};
     const unsigned width = 32;

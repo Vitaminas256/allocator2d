@@ -134,7 +134,7 @@ namespace mo_yanxi{
 			typename std::allocator_traits<allocator_type>::template rebind_alloc<std::pair<
 				const point_type, split_point>>
 		>;
-		map_type map{};
+		map_type map_{};
 
 		using inner_tree_type = std::multimap<
 			size_type, point_type,
@@ -151,28 +151,28 @@ namespace mo_yanxi{
 		>;
 
 		// Large pool: store area >= 1/8 (Comment says 1/8 but init says 1/64, logic follows code)
-		tree_type large_nodes_XY{};
-		tree_type large_nodes_YX{};
+		tree_type large_nodes_xy_{};
+		tree_type large_nodes_yx_{};
 
 		// Fragment pool: store area < 1/8
-		tree_type frag_nodes_XY{};
-		tree_type frag_nodes_YX{};
+		tree_type frag_nodes_xy_{};
+		tree_type frag_nodes_yx_{};
 
-		using ItrOuter = typename tree_type::iterator;
-		using ItrInner = typename tree_type::mapped_type::iterator;
+		using itr_outer = typename tree_type::iterator;
+		using itr_inner = typename tree_type::mapped_type::iterator;
 
-		struct ItrPair{
-			ItrOuter outer{};
-			ItrInner inner{};
+		struct itr_pair{
+			itr_outer outer{};
+			itr_inner inner{};
 			[[nodiscard]] auto value() const{
 				return inner->second;
 			}
 
-			void locateNextInner(const size_type second){
+			void locate_next_inner(const size_type second){
 				inner = outer->second.lower_bound(second);
 			}
 
-			bool locateNextOuter(tree_type& tree){
+			bool locate_next_outer(tree_type& tree){
 				++outer;
 				if(outer == tree.end()) return false;
 				return true;
@@ -239,26 +239,26 @@ namespace mo_yanxi{
 					// 1. Top-Left Region
 					point_type tl_src{bot_lft.x, split.y};
 					point_type tl_end{split.x, top_rit.y};
-					if((tl_end - tl_src).area() > 0) alloc.erase_split(tl_src, tl_end);
+					if((tl_end - tl_src).area() > 0) alloc.erase_split_(tl_src, tl_end);
 
 					// 2. Top-Right Region
 					point_type tr_src = split;
 					point_type tr_end = top_rit;
-					if((tr_end - tr_src).area() > 0) alloc.erase_split(tr_src, tr_end);
+					if((tr_end - tr_src).area() > 0) alloc.erase_split_(tr_src, tr_end);
 
 					// 3. Bottom-Right Region
 					point_type br_src{split.x, bot_lft.y};
 					point_type br_end{top_rit.x, split.y};
-					if((br_end - br_src).area() > 0) alloc.erase_split(br_src, br_end);
+					if((br_end - br_src).area() > 0) alloc.erase_split_(br_src, br_end);
 
 					// Erase self from fragments/large pools if it was there
                     // (For a leaf, it might be. For a parent attempting merge, it isn't.)
-					alloc.erase_mark(bot_lft, split);
+					alloc.erase_mark_(bot_lft, split);
 
 					split = top_rit;
 
 					if(is_root()) return false;
-					auto& p = get_parent(alloc.map);
+					auto& p = get_parent(alloc.map_);
 					if(parent.x == bot_lft.x){
 						p.idle_top_lft = true;
 					} else if(parent.y == bot_lft.y){
@@ -270,7 +270,6 @@ namespace mo_yanxi{
 				}else{
 					return false;
 				}
-				return false;
 			}
 
 			split_point& get_parent(map_type& map) const noexcept{
@@ -285,33 +284,33 @@ namespace mo_yanxi{
 					// first split
 					split = bot_lft + extent;
 
-					alloc.erase_mark(bot_lft, top_rit);
+					alloc.erase_mark_(bot_lft, top_rit);
 
 					// 1. Bottom-Right Region
 					point_type br_src{split.x, bot_lft.y};
 					point_type br_end{top_rit.x, split.y};
 					if((br_end - br_src).area() > 0){
-						alloc.add_split(bot_lft, br_src, br_end);
+						alloc.add_split_(bot_lft, br_src, br_end);
 					}
 
 					// 2. Top-Right Region
 					point_type tr_src = split;
 					point_type tr_end = top_rit;
 					if((tr_end - tr_src).area() > 0){
-						alloc.add_split(bot_lft, tr_src, tr_end);
+						alloc.add_split_(bot_lft, tr_src, tr_end);
 					}
 
 					// 3. Top-Left Region
 					point_type tl_src{bot_lft.x, split.y};
 					point_type tl_end{split.x, top_rit.y};
 					if((tl_end - tl_src).area() > 0){
-						alloc.add_split(bot_lft, tl_src, tl_end);
+						alloc.add_split_(bot_lft, tl_src, tl_end);
 					}
 				} else{
-					alloc.erase_mark(bot_lft, split);
+					alloc.erase_mark_(bot_lft, split);
 				}
 
-				this->mark_captured(alloc.map);
+				this->mark_captured(alloc.map_);
 
 			}
 
@@ -322,121 +321,121 @@ namespace mo_yanxi{
 				split_point* p = this;
 				split_point* last = this;
 				while(p->check_merge(alloc)){
-					auto* next = &p->get_parent(alloc.map);
+					auto* next = &p->get_parent(alloc.map_);
 					last = p;
 					p = next;
 				}
 
-				assert(!alloc.map.contains(last->bot_lft) || alloc.map.at(last->bot_lft).idle);
+				assert(!alloc.map_.contains(last->bot_lft) || alloc.map_.at(last->bot_lft).idle);
 				if(p->is_leaf()){
-					alloc.mark_size(p->bot_lft, p->split);
+					alloc.mark_size_(p->bot_lft, p->split);
 				}else{
-					alloc.mark_size(last->bot_lft, last->split);
+					alloc.mark_size_(last->bot_lft, last->split);
 				}
 				return p;
 			}
 		};
 
-		std::optional<point_type> findNodeInTree(
-			tree_type& treeXY,
-			tree_type& treeYX,
+		std::optional<point_type> find_node_in_tree_(
+			tree_type& tree_xy,
+			tree_type& tree_yx,
 			const extent_type size)
 		{
-			ItrPair itrPairXY{treeXY.lower_bound(size.x)};
-			ItrPair itrPairYX{treeYX.lower_bound(size.y)};
+			itr_pair itr_pair_xy{tree_xy.lower_bound(size.x)};
+			itr_pair itr_pair_yx{tree_yx.lower_bound(size.y)};
 
 			std::optional<point_type> node{};
-			bool possibleX{itrPairXY.outer != treeXY.end()};
-			bool possibleY{itrPairYX.outer != treeYX.end()};
+			bool possible_x{itr_pair_xy.outer != tree_xy.end()};
+			bool possible_y{itr_pair_yx.outer != tree_yx.end()};
 
 			while(true){
-				if(!possibleX && !possibleY) break;
+				if(!possible_x && !possible_y) break;
 
-				if(possibleX){
-					itrPairXY.locateNextInner(size.y);
-					if(itrPairXY.valid(treeXY)){
-						node = itrPairXY.value();
+				if(possible_x){
+					itr_pair_xy.locate_next_inner(size.y);
+					if(itr_pair_xy.valid(tree_xy)){
+						node = itr_pair_xy.value();
 						break;
 					} else{
-						possibleX = itrPairXY.locateNextOuter(treeXY);
+						possible_x = itr_pair_xy.locate_next_outer(tree_xy);
 					}
 				}
 
-				if(possibleY){
-					itrPairYX.locateNextInner(size.x);
-					if(itrPairYX.valid(treeYX)){
-						node = itrPairYX.value();
+				if(possible_y){
+					itr_pair_yx.locate_next_inner(size.x);
+					if(itr_pair_yx.valid(tree_yx)){
+						node = itr_pair_yx.value();
 						break;
 					} else{
-						possibleY = itrPairYX.locateNextOuter(treeYX);
+						possible_y = itr_pair_yx.locate_next_outer(tree_yx);
 					}
 				}
 			}
 			return node;
 		}
 
-		[[nodiscard]] bool is_fragment(const point_type& size) const noexcept {
+		[[nodiscard]] bool is_fragment_(const point_type& size) const noexcept {
 			return size.as<large_size_type>().area() <= fragment_threshold_.value;
 		}
 
-		std::optional<point_type> getValidNode(const extent_type size){
+		std::optional<point_type> get_valid_node_(const extent_type size){
 			assert(size.area() > 0);
 
 			if(remain_area_.value < size.area()){
 				return std::nullopt;
 			}
 
-			auto frag_node = findNodeInTree(frag_nodes_XY, frag_nodes_YX, size);
+			auto frag_node = find_node_in_tree_(frag_nodes_xy_, frag_nodes_yx_, size);
 			if (frag_node) return frag_node;
 
-			return findNodeInTree(large_nodes_XY, large_nodes_YX, size);
+			return find_node_in_tree_(large_nodes_xy_, large_nodes_yx_, size);
 		}
 
-		void mark_size(const point_type src, const point_type dst) noexcept{
+		void mark_size_(const point_type src, const point_type dst) noexcept{
 			const auto size = dst - src;
 
-			if (is_fragment(size)) {
-				frag_nodes_XY[size.x].insert({size.y, src});
-				frag_nodes_YX[size.y].insert({size.x, src});
+			if (is_fragment_(size)) {
+				frag_nodes_xy_[size.x].insert({size.y, src});
+				frag_nodes_yx_[size.y].insert({size.x, src});
 			} else {
-				large_nodes_XY[size.x].insert({size.y, src});
-				large_nodes_YX[size.y].insert({size.x, src});
+				large_nodes_xy_[size.x].insert({size.y, src});
+				large_nodes_yx_[size.y].insert({size.x, src});
 			}
 		}
 
-		void add_split(const point_type parent, const point_type src, const point_type dst){
-			map.insert_or_assign(src, split_point{parent, src, dst});
-			mark_size(src, dst);
+		void add_split_(const point_type parent, const point_type src, const point_type dst){
+			map_.insert_or_assign(src, split_point{parent, src, dst});
+			mark_size_(src, dst);
 		}
 
-		void erase_split(const point_type src, const point_type dst){
-			map.erase(src);
-			erase_mark(src, dst);
+		void erase_split_(const point_type src, const point_type dst){
+			map_.erase(src);
+			erase_mark_(src, dst);
 		}
 
-		void erase_mark(const point_type src, const point_type dst){
+		void erase_mark_(const point_type src, const point_type dst){
 			const auto size = dst - src;
 
 
 
-			if (is_fragment(size)) {
-				erase(frag_nodes_XY, src, size.x, size.y);
-				erase(frag_nodes_YX, src, size.y, size.x);
+			if (is_fragment_(size)) {
+				erase_(frag_nodes_xy_, src, size.x, size.y);
+				erase_(frag_nodes_yx_, src, size.y, size.x);
 
 
 			} else {
-				erase(large_nodes_XY, src, size.x, size.y);
-				erase(large_nodes_YX, src, size.y, size.x);
+				erase_(large_nodes_xy_, src, size.x, size.y);
+				erase_(large_nodes_yx_, src, size.y, size.x);
 			}
 		}
 
-		static void erase(tree_type& map, const point_type src, const size_type outerKey,
-		                  const size_type innerKey) noexcept{
-			auto itr = map.find(outerKey);
+		static void erase_(tree_type& map, const point_type src, const size_type outer_key,
+		                  const size_type inner_key) noexcept{
+			auto itr = map.find(outer_key);
 			if(itr == map.end())return;
 
 			auto& inner = itr->second;
-			auto [begin, end] = inner.equal_range(innerKey);
+			auto [begin, end] = inner.equal_range(inner_key);
 
 			for (auto cur = begin; cur != end; ++cur) {
 				if (cur->second == src) {
@@ -451,7 +450,7 @@ namespace mo_yanxi{
 			}
 		}
 
-		void init_threshold(const extent_type extent) {
+		void init_threshold_(const extent_type extent) {
 			if(!fragment_threshold_.value)fragment_threshold_ = std::max<large_size_type>(extent.as<large_size_type>().area() / 64, 96 * 96);
 		}
 
@@ -459,22 +458,22 @@ namespace mo_yanxi{
 		[[nodiscard]] allocator2d() = default;
 		[[nodiscard]] explicit allocator2d(const allocator_type& allocator, large_size_type frag_thres = 0)
 			: fragment_threshold_(frag_thres),
-			  map(allocator), large_nodes_XY(allocator),
-			  large_nodes_YX(allocator), frag_nodes_XY(allocator), frag_nodes_YX(allocator){
+			  map_(allocator), large_nodes_xy_(allocator),
+			  large_nodes_yx_(allocator), frag_nodes_xy_(allocator), frag_nodes_yx_(allocator){
 		}
 
 		[[nodiscard]] explicit allocator2d(const extent_type extent, large_size_type frag_thres = 0)
 			: extent_(extent), remain_area_(extent.area()), fragment_threshold_(frag_thres){
-			init_threshold(extent);
-			add_split({}, {}, extent);
+			init_threshold_(extent);
+			add_split_({}, {}, extent);
 		}
 
 		[[nodiscard]] allocator2d(const allocator_type& allocator, const extent_type extent, large_size_type frag_thres = 0)
-			: extent_(extent), remain_area_(extent.area()), fragment_threshold_(frag_thres), map(allocator),
-			  large_nodes_XY(allocator), large_nodes_YX(allocator),
-			  frag_nodes_XY(allocator), frag_nodes_YX(allocator){
-			init_threshold(extent);
-			add_split({}, {}, extent);
+			: extent_(extent), remain_area_(extent.area()), fragment_threshold_(frag_thres), map_(allocator),
+			  large_nodes_xy_(allocator), large_nodes_yx_(allocator),
+			  frag_nodes_xy_(allocator), frag_nodes_yx_(allocator){
+			init_threshold_(extent);
+			add_split_({}, {}, extent);
 		}
 
 		[[nodiscard]] std::optional<point_type> allocate(const math::usize2 extent){
@@ -485,17 +484,17 @@ namespace mo_yanxi{
 			if(extent.beyond(extent_.value)) return std::nullopt;
 			if(remain_area_.value < extent.as<std::uint64_t>().area()) return std::nullopt;
 
-			auto chamber_src = getValidNode(extent);
+			auto chamber_src = get_valid_node_(extent);
 			if(!chamber_src) return std::nullopt;
 
-			auto& chamber = map.at(chamber_src.value());
+			auto& chamber = map_.at(chamber_src.value());
 			chamber.acquire_and_split(*this, extent);
 			remain_area_.value -= extent.area();
 			return chamber_src.value();
 		}
 
 		bool deallocate(const point_type value) noexcept{
-			if(const auto itr = map.find(value); itr != map.end()){
+			if(const auto itr = map_.find(value); itr != map_.end()){
 				const auto extent = (itr->second.split - value).area();
 				remain_area_.value += itr->second.used_extent.area();
 				itr->second.mark_idle(*this);
