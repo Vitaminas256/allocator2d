@@ -26,43 +26,42 @@ void foo(){
 1. Try to allocate many rects on a clean area.
 2. Deallocate some of them
 3. Allocate small fragments(color in white)
-4. Deallocate some small fragments 
-5. Deallocate all (not displayed, no leak anyway)
+4. Deallocate all (not displayed, no leak anyway)
 * You can play with the test with code in main.cpp
 
-HighFragment Test
-<div style="display: flex; gap: 10px;">
-    <div style="flex: 1;">
-        <h4>文件 A (文本示例)</h4>
-        <p>这里是第一个文件的描述或内容。它可以自动调整宽度。</p>
+#### HighFragment Test
+<div style="display: flex; justify-content: space-around; align-items: normal;">
+    <div style="text-align: center;">
+        <img src="readme_assets/HighFragment_01_allocated.png" width="100%"  alt=""/>
+        <p>Initial Allocate</p>
     </div>
-
-    <div style="flex: 1;">
-        <h4>文件 B (图片示例)</h4>
-        <img src="https://via.placeholder.com/150" alt="示例图片" width="100%">
+    <div style="text-align: center;">
+        <img src="readme_assets/HighFragment_02_fragmented.png" width="100%"  alt=""/>
+        <p>Partial Deallocate</p>
+    </div>
+    <div style="text-align: center;">
+        <img src="readme_assets/HighFragment_03_refilled.png" width="100%"  alt=""/>
+        <p>Allocate Fragments(White)</p>
     </div>
 </div>
 
-<p align="center">
-  <img src="readme_assets/HighFragment_01_allocated.png" width="45%" />
-  <img src="readme_assets/HighFragment_02_fragmented.png" width="45%" /> 
-  <img src="readme_assets/HighFragment_03_refilled.png" width="45%" /> 
-  <img src="readme_assets/HighFragment_04_partial_clear.png" width="45%" /> 
-</p>
-
-| S1                                               | S2                                                | S3                                              | S4                                                   |
-|--------------------------------------------------|---------------------------------------------------|-------------------------------------------------|------------------------------------------------------|
-| ![](readme_assets/HighFragment_01_allocated.png) | ![](readme_assets/HighFragment_02_fragmented.png) | ![](readme_assets/HighFragment_03_refilled.png) | ![](readme_assets/HighFragment_04_partial_clear.png) |
-
 ---
 
-Standard Test
-
-| S1                                           | S2                                            | S3                                          | S4                                               |
-|----------------------------------------------|-----------------------------------------------|---------------------------------------------|--------------------------------------------------|
-| ![](readme_assets/Standard_01_allocated.png) | ![](readme_assets/Standard_02_fragmented.png) | ![](readme_assets/Standard_03_refilled.png) | ![](readme_assets/Standard_04_partial_clear.png) |
-
-
+#### Standard Test
+<div style="display: flex; justify-content: space-around; align-items: normal;">
+    <div style="text-align: center;">
+        <img src="readme_assets/Standard_01_allocated.png" width="100%"  alt=""/>
+        <p>Initial Allocate</p>
+    </div>
+    <div style="text-align: center;">
+        <img src="readme_assets/Standard_02_fragmented.png" width="100%"  alt=""/>
+        <p>Partial Deallocate</p>
+    </div>
+    <div style="text-align: center;">
+        <img src="readme_assets/Standard_03_refilled.png" width="100%"  alt=""/>
+        <p>Allocate Fragments(White)</p>
+    </div>
+</div>
 
 
 
