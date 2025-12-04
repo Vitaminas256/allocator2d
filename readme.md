@@ -1,4 +1,5 @@
 # Allocator 2D
+This library is designed for image atlas with **deallocation** demands(space reuse like temporary icons, glyphs...) and  image fragments varying in **two** dimension.
 
 * Provide simple **dynamic** rectangle area allocation/deallocation, written in **C++20**.
 * Single header/module interface.
@@ -85,6 +86,15 @@ void foo(){
 
 ### Deallocate
 * Return false if the point is not a root of an allocated area in this allocator. Generally this is an error similar to _double free_ or `delete` a pointer that is not obtained from `operator new`, i.e. it should be treated as an assertion error.
+
+### Copy Constructor/Assign Operator
+* The copy constructor is defined as protected, you can derive the allocator and expose it to using this functionality.
+
+
+### Move Constructor/Assign Operator
+* Allocator after being moved is empty, you should reassign an allocator to it if you want use it after move.
+
+
 
 ## Leak Check
 * `mo_yanxi::allocator2d_checked` Provides leak check. It checks that if the remain area is not equal to the total extent on destruct. If leaks, it calls `MO_YANXI_ALLOCATOR_2D_LEAK_BEHAVIOR(*this)` or print a simple error message and call `std::terminate` by default.
