@@ -1,22 +1,71 @@
 #include <version>
 //Used to pass CI
 
-#ifdef __cpp_lib_print
+#ifdef ENABLE_TEST
+#ifndef __cpp_lib_print
+#error "Print Not Supported"
+#endif
+#endif
+
+#ifdef ENABLE_TEST
 #include <string>
 #include <cstdint>
 #include <algorithm>
 #include <random>
 #include <print>
+#include <chrono> // [Added] Needed for timing
 #endif
 
 #include "include/mo_yanxi/allocator_2d.hpp"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+
 //----------------------------------------------------------------------------------------------------
 //  -TEST USAGE-    -TEST USAGE-    -TEST USAGE-    -TEST USAGE-    -TEST USAGE-    -TEST USAGE-
 //----------------------------------------------------------------------------------------------------
-#ifdef __cpp_lib_print
+#ifdef ENABLE_TEST
+
+// [Added] Simple profiler to track duration stats
+class perf_profiler {
+    using clock = std::chrono::high_resolution_clock;
+    using duration = std::chrono::nanoseconds;
+
+    duration total_dur_{0};
+    duration success_dur_{0};
+    duration fail_dur_{0};
+
+    std::size_t total_count_{0};
+    std::size_t success_count_{0};
+    std::size_t fail_count_{0};
+
+public:
+    void record(duration d, bool success) {
+        total_dur_ += d;
+        total_count_++;
+        if (success) {
+            success_dur_ += d;
+            success_count_++;
+        } else {
+            fail_dur_ += d;
+            fail_count_++;
+        }
+    }
+
+    void print_stats(const std::string& label) const {
+        auto to_ns_double = [](duration d, std::size_t count) {
+            return count == 0 ? 0.0 : static_cast<double>(d.count()) / count;
+        };
+
+        std::println("  -> [Timing: {}]", label);
+        std::println("     Total:   {:>8.2f} ns/op ({} ops)", to_ns_double(total_dur_, total_count_), total_count_);
+        if (success_count_ > 0)
+            std::println("     Success: {:>8.2f} ns/op ({} ops)", to_ns_double(success_dur_, success_count_), success_count_);
+        if (fail_count_ > 0)
+            std::println("     Fail:    {:>8.2f} ns/op ({} ops)", to_ns_double(fail_dur_, fail_count_), fail_count_);
+    }
+};
+
 struct block_info {
     mo_yanxi::math::vector2<std::uint32_t> pos;
     mo_yanxi::math::vector2<std::uint32_t> size;
@@ -109,6 +158,7 @@ private:
 
     void phase_1_fill() {
         std::println("[Phase 1] Random Allocation Fill...");
+        perf_profiler profiler; // [Added]
         int count = 0;
 
         std::size_t used_area{};
@@ -117,7 +167,12 @@ private:
             std::uint32_t h = size_dist_(rng_);
             auto size = mo_yanxi::math::vector2<std::uint32_t>{w, h};
 
+            // [Modified] Timing logic
+            auto start = std::chrono::high_resolution_clock::now();
             auto result = alloc_.allocate(size);
+            auto end = std::chrono::high_resolution_clock::now();
+            profiler.record(end - start, result.has_value());
+
             if (result) {
                 used_area += w * h;
                 std::uint8_t r = color_dist_(rng_);
@@ -127,18 +182,17 @@ private:
                 active_blocks_.push_back({*result, size, r, g, b});
                 canvas_.draw_rect(result->x, result->y, w, h, r, g, b);
                 count++;
-            } else {
-                // If allocation fails multiple times, we could exit early,
-                // but we continue to try filling as much as possible.
             }
         }
         std::println("  -> Allocated {} blocks", count);
+        profiler.print_stats("Alloc Fill"); // [Added]
         std::println("  -> Area Check: {} + {} = {} ?= {}", used_area, alloc_.remain_area(), used_area +  alloc_.remain_area(), alloc_.extent().area());
         canvas_.save(get_filename("01_allocated.png"));
     }
 
     void phase_2_fragment() {
         std::println("[Phase 2] Randomly freeing 50% of blocks to create fragmentation...");
+        perf_profiler profiler; // [Added]
         std::vector<block_info> remaining_blocks;
         std::ranges::shuffle(active_blocks_, rng_);
 
@@ -146,7 +200,12 @@ private:
         std::size_t used_area{alloc_.extent().area() - alloc_.remain_area()};
         for (std::size_t i = 0; i < active_blocks_.size(); ++i) {
             if (i < remove_count) {
+                // [Modified] Timing logic
+                auto start = std::chrono::high_resolution_clock::now();
                 bool success = alloc_.deallocate(active_blocks_[i].pos);
+                auto end = std::chrono::high_resolution_clock::now();
+                profiler.record(end - start, success);
+
                 if (!success) {
                     std::println(stderr, "  -> Error: Failed to deallocate at {},{}", active_blocks_[i].pos.x, active_blocks_[i].pos.y);
                 } else {
@@ -160,19 +219,20 @@ private:
         }
 
         std::println("  -> Area Check: {} + {} = {} ?= {}", used_area, alloc_.remain_area(), used_area +  alloc_.remain_area(), alloc_.extent().area());
+        profiler.print_stats("Dealloc Fragment"); // [Added]
         active_blocks_ = std::move(remaining_blocks);
         canvas_.save(get_filename("02_fragmented.png"));
     }
 
     void phase_3_refill() {
         std::println("[Phase 3] Attempting to refill gaps with smaller blocks...");
+        perf_profiler profiler; // [Added]
         // Use a smaller size distribution to test gap filling capability
         std::uniform_int_distribution<std::uint32_t> small_size_dist(5, config_.size_range.first + 5);
 
         int success_count = 0;
         int attempts = config_.max_fill_attempts / 2;
 
-        // canvas_.clear();
         std::size_t used_area{alloc_.extent().area() - alloc_.remain_area()};
         auto last_area = alloc_.remain_area();
 
@@ -181,10 +241,14 @@ private:
             std::uint32_t h = small_size_dist(rng_);
             auto size = mo_yanxi::math::vector2<std::uint32_t>{w, h};
 
+            // [Modified] Timing logic
+            auto start = std::chrono::high_resolution_clock::now();
             auto result = alloc_.allocate(size);
+            auto end = std::chrono::high_resolution_clock::now();
+            profiler.record(end - start, result.has_value());
+
             if (result) {
                 used_area += w * h;
-                // Bright white indicates new allocation
                 std::uint8_t r = 255, g = 255, b = 255;
                 canvas_.draw_rect(result->x, result->y, w, h, r, g, b);
                 active_blocks_.push_back({*result, size, r, g, b});
@@ -192,19 +256,19 @@ private:
                 if(alloc_.remain_area() != last_area - w * h){
                     throw std::runtime_error{"Area Mismatch"};
                 }
-
                 last_area = last_area - w * h;
             }
         }
 
         std::println("  -> Area Check: {} + {} = {} ?= {}", used_area, alloc_.remain_area(), used_area +  alloc_.remain_area(), alloc_.extent().area());
-
         std::println("  -> Successfully re-allocated {} new blocks", success_count);
+        profiler.print_stats("Alloc Refill"); // [Added]
         canvas_.save(get_filename("03_refilled.png"));
     }
 
     void phase_4_partial_clear() {
         std::println("[Phase 4] Randomly freeing 30% of blocks again...");
+        perf_profiler profiler; // [Added]
         std::ranges::shuffle(active_blocks_, rng_);
         std::vector<block_info> remaining_blocks;
 
@@ -212,7 +276,13 @@ private:
         std::size_t remove_count = static_cast<std::size_t>(active_blocks_.size() * 0.3);
         for (std::size_t i = 0; i < active_blocks_.size(); ++i) {
             if (i < remove_count) {
-                if(!alloc_.deallocate(active_blocks_[i].pos)){
+                // [Modified] Timing logic
+                auto start = std::chrono::high_resolution_clock::now();
+                bool success = alloc_.deallocate(active_blocks_[i].pos);
+                auto end = std::chrono::high_resolution_clock::now();
+                profiler.record(end - start, success);
+
+                if(!success){
                     throw std::runtime_error{"Bad Dealloc"};
                 }
 
@@ -226,22 +296,29 @@ private:
         }
         active_blocks_ = std::move(remaining_blocks);
         std::println("  -> Area Check: {} + {} = {} ?= {}", used_area, alloc_.remain_area(), used_area +  alloc_.remain_area(), alloc_.extent().area());
+        profiler.print_stats("Dealloc Partial"); // [Added]
         canvas_.save(get_filename("04_partial_clear.png"));
     }
 
     void phase_5_full_clear_and_verify() {
         std::println("[Phase 5] Performing full clear and final verification...");
+        perf_profiler profiler; // [Added]
 
-        auto t = std::move(alloc_);
-        alloc_ = std::move(t);
-
+        // Only timing the deallocations, not the move logic
         for(const auto& b : active_blocks_) {
-            if(!alloc_.deallocate(b.pos)) {
+            auto start = std::chrono::high_resolution_clock::now();
+            bool success = alloc_.deallocate(b.pos);
+            auto end = std::chrono::high_resolution_clock::now();
+            profiler.record(end - start, success);
+
+            if(!success) {
                  std::println(stderr, "  -> Fatal Error: Failed to release block at {},{}", b.pos.x, b.pos.y);
             }
             canvas_.draw_rect(b.pos.x, b.pos.y, b.size.x, b.size.y, 0, 0, 0);
         }
         active_blocks_.clear();
+
+        profiler.print_stats("Dealloc Final"); // [Added]
 
         // Verify status
         std::uint32_t total_area = config_.map_size * config_.map_size;
@@ -300,7 +377,7 @@ void test_fn(){
 
 
 int main() {
-#ifdef __cpp_lib_print
+#ifdef ENABLE_TEST
     test_fn();
 #endif
 
