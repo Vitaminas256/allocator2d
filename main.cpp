@@ -1,13 +1,13 @@
 // 引入 STB 库用于写入图像
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
+#include "stb_image_write.h"
 #include <string>
 #include <cstdint>
 #include <print>
 #include <algorithm>
 #include <random>
 
-#include "mo_yanxi/allocator_2d.hpp"
+#include "include/mo_yanxi/allocator_2d.hpp"
 
 //----------------------------------------------------------------------------------------------------
 //  -TEST USAGE-    -TEST USAGE-    -TEST USAGE-    -TEST USAGE-    -TEST USAGE-    -TEST USAGE-
@@ -31,6 +31,9 @@ public:
             for (int i = x; i < x + w; ++i) {
                 if (i >= 0 && i < width && j >= 0 && j < height) {
                     int idx = (j * width + i) * 3;
+                    if(r != 0)assert(pixels[idx] == 0);
+                    if(g != 0)assert(pixels[idx + 1] == 0);
+                    if(b != 0)assert(pixels[idx + 2] == 0);
                     pixels[idx] = r;
                     pixels[idx + 1] = g;
                     pixels[idx + 2] = b;
@@ -103,6 +106,8 @@ private:
     void phase_1_fill() {
         std::println("[阶段 1] 随机分配填充...");
         int count = 0;
+
+        std::size_t used_area{};
         for (int i = 0; i < config_.max_fill_attempts; ++i) {
             std::uint32_t w = size_dist_(rng_);
             std::uint32_t h = size_dist_(rng_);
@@ -110,6 +115,7 @@ private:
 
             auto result = alloc_.allocate(size);
             if (result) {
+                used_area += w * h;
                 std::uint8_t r = color_dist_(rng_);
                 std::uint8_t g = color_dist_(rng_);
                 std::uint8_t b = color_dist_(rng_);
@@ -123,6 +129,7 @@ private:
             }
         }
         std::println("  -> 共分配了 {} 个块", count);
+        std::println("  -> Area Check: {} + {} = {} ?= {}", used_area, alloc_.remain_area(), used_area +  alloc_.remain_area(), alloc_.extent().area());
         canvas_.save(get_filename("01_allocated.png"));
     }
 
@@ -132,6 +139,7 @@ private:
         std::ranges::shuffle(active_blocks_, rng_);
 
         std::size_t remove_count = active_blocks_.size() / 2;
+        std::size_t used_area{alloc_.extent().area() - alloc_.remain_area()};
         for (std::size_t i = 0; i < active_blocks_.size(); ++i) {
             if (i < remove_count) {
                 bool success = alloc_.deallocate(active_blocks_[i].pos);
@@ -140,11 +148,14 @@ private:
                 } else {
                     auto& b = active_blocks_[i];
                     canvas_.draw_rect(b.pos.x, b.pos.y, b.size.x, b.size.y, 0, 0, 0);
+                    used_area -= b.size.area();
                 }
             } else {
                 remaining_blocks.push_back(active_blocks_[i]);
             }
         }
+
+        std::println("  -> Area Check: {} + {} = {} ?= {}", used_area, alloc_.remain_area(), used_area +  alloc_.remain_area(), alloc_.extent().area());
         active_blocks_ = std::move(remaining_blocks);
         canvas_.save(get_filename("02_fragmented.png"));
     }
@@ -157,6 +168,10 @@ private:
         int success_count = 0;
         int attempts = config_.max_fill_attempts / 2; // 尝试次数
 
+        // canvas_.clear();
+        std::size_t used_area{alloc_.extent().area() - alloc_.remain_area()};
+        auto last_area = alloc_.remain_area();
+
         for (int i = 0; i < attempts; ++i) {
             std::uint32_t w = small_size_dist(rng_);
             std::uint32_t h = small_size_dist(rng_);
@@ -164,13 +179,22 @@ private:
 
             auto result = alloc_.allocate(size);
             if (result) {
+                used_area += w * h;
                 // 亮白色表示新分配
                 std::uint8_t r = 255, g = 255, b = 255;
                 canvas_.draw_rect(result->x, result->y, w, h, r, g, b);
                 active_blocks_.push_back({*result, size, r, g, b});
                 success_count++;
+                if(alloc_.remain_area() != last_area - w * h){
+                    throw std::runtime_error{"Area Mismatch"};
+                }
+
+                last_area = last_area - w * h;
             }
         }
+
+        std::println("  -> Area Check: {} + {} = {} ?= {}", used_area, alloc_.remain_area(), used_area +  alloc_.remain_area(), alloc_.extent().area());
+
         std::println("  -> 成功重新分配了 {} 个新块", success_count);
         canvas_.save(get_filename("03_refilled.png"));
     }
@@ -180,10 +204,16 @@ private:
         std::ranges::shuffle(active_blocks_, rng_);
         std::vector<BlockInfo> remaining_blocks;
 
+        std::size_t used_area{alloc_.extent().area() - alloc_.remain_area()};
         std::size_t remove_count = static_cast<std::size_t>(active_blocks_.size() * 0.3);
         for (std::size_t i = 0; i < active_blocks_.size(); ++i) {
             if (i < remove_count) {
-                alloc_.deallocate(active_blocks_[i].pos);
+                if(!alloc_.deallocate(active_blocks_[i].pos)){
+                    throw std::runtime_error{"Bad Dealloc"};
+                }
+
+                used_area -= active_blocks_[i].size.area();
+
                 auto& b = active_blocks_[i];
                 canvas_.draw_rect(b.pos.x, b.pos.y, b.size.x, b.size.y, 0, 0, 0);
             } else {
@@ -191,6 +221,7 @@ private:
             }
         }
         active_blocks_ = std::move(remaining_blocks);
+        std::println("  -> Area Check: {} + {} = {} ?= {}", used_area, alloc_.remain_area(), used_area +  alloc_.remain_area(), alloc_.extent().area());
         canvas_.save(get_filename("04_partial_clear.png"));
     }
 
@@ -228,6 +259,7 @@ private:
         }
 
         canvas_.save(get_filename("05_full_clear.png"));
+
     }
 };
 
@@ -236,7 +268,7 @@ int main() {
         AllocatorTester::Config config{
             .test_name = "Standard",
             .map_size = 2048,
-            .max_fill_attempts = 10000,
+            .max_fill_attempts = 40000,
             .size_range = {32, 256}
         };
         AllocatorTester tester(config);
@@ -247,7 +279,7 @@ int main() {
         AllocatorTester::Config config{
             .test_name = "HighFragment",
             .map_size = 1024,
-            .max_fill_attempts = 5000,
+            .max_fill_attempts = 40000,
             .size_range = {4, 16}
         };
         AllocatorTester tester(config);

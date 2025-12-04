@@ -1,4 +1,3 @@
-
 #ifdef MO_YANXI_ALLOCATOR_2D_ENABLE_MODULE
 #define MO_YANXI_ALLOCATOR_2D_EXPORT export
 #else
@@ -16,6 +15,7 @@ import std;
 #include <scoped_allocator>
 #include <optional>
 #include <iostream>
+#include <cassert>
 #endif
 
 
@@ -74,7 +74,7 @@ struct std::hash<mo_yanxi::math::vector2<T>>{
 #endif
 
 
-namespace{
+namespace mo_yanxi{
 
 	template <typename T>
 	struct exchange_on_move{
@@ -150,7 +150,7 @@ namespace mo_yanxi{
 				std::pair<const size_type, inner_tree_type>>>
 		>;
 
-		// Large pool: store area >= 1/8
+		// Large pool: store area >= 1/8 (Comment says 1/8 but init says 1/64, logic follows code)
 		tree_type large_nodes_XY{};
 		tree_type large_nodes_YX{};
 
@@ -189,6 +189,8 @@ namespace mo_yanxi{
 			point_type top_rit{};
 			point_type split{top_rit};
 
+			extent_type used_extent{};
+
 			bool idle{true};
 			bool idle_top_lft{true};
 			bool idle_top_rit{true};
@@ -216,15 +218,20 @@ namespace mo_yanxi{
 
 			void mark_captured(map_type& map) noexcept{
 				idle = false;
-				if(is_root()) return;
-				auto& p = get_parent(map);
-				if(parent.x == bot_lft.x){
-					p.idle_top_lft = false;
-				} else if(parent.y == bot_lft.y){
-					p.idle_bot_rit = false;
-				} else{
-					p.idle_top_rit = false;
+
+				split_point* cur = this;
+				while(!cur->is_root()){
+					split_point& p = cur->get_parent(map);
+					if(cur->parent.x == cur->bot_lft.x){
+						p.idle_top_lft = false;
+					} else if(cur->parent.y == cur->bot_lft.y){
+						p.idle_bot_rit = false;
+					} else{
+						p.idle_top_rit = false;
+					}
+					cur = &p;
 				}
+
 			}
 
 			bool check_merge(allocator2d& alloc) noexcept{
@@ -244,7 +251,8 @@ namespace mo_yanxi{
 					point_type br_end{top_rit.x, split.y};
 					if((br_end - br_src).area() > 0) alloc.erase_split(br_src, br_end);
 
-					// Erase self
+					// Erase self from fragments/large pools if it was there
+                    // (For a leaf, it might be. For a parent attempting merge, it isn't.)
 					alloc.erase_mark(bot_lft, split);
 
 					split = top_rit;
@@ -259,6 +267,8 @@ namespace mo_yanxi{
 						p.idle_top_rit = true;
 					}
 					return true;
+				}else{
+					return false;
 				}
 				return false;
 			}
@@ -269,9 +279,12 @@ namespace mo_yanxi{
 
 			void acquire_and_split(allocator2d& alloc, const math::usize2 extent){
 				assert(idle);
+
+				used_extent = extent;
 				if(is_leaf()){
 					// first split
 					split = bot_lft + extent;
+
 					alloc.erase_mark(bot_lft, top_rit);
 
 					// 1. Bottom-Right Region
@@ -294,23 +307,32 @@ namespace mo_yanxi{
 					if((tl_end - tl_src).area() > 0){
 						alloc.add_split(bot_lft, tl_src, tl_end);
 					}
-
-					mark_captured(alloc.map);
 				} else{
 					alloc.erase_mark(bot_lft, split);
 				}
+
+				this->mark_captured(alloc.map);
+
 			}
 
 			split_point* mark_idle(allocator2d& alloc){
 				assert(!idle);
 				idle = true;
-				auto* p = this;
+				used_extent = {};
+				split_point* p = this;
+				split_point* last = this;
 				while(p->check_merge(alloc)){
 					auto* next = &p->get_parent(alloc.map);
+					last = p;
 					p = next;
 				}
 
-				if(p->is_leaf()) alloc.mark_size(p->bot_lft, p->top_rit);
+				assert(!alloc.map.contains(last->bot_lft) || alloc.map.at(last->bot_lft).idle);
+				if(p->is_leaf()){
+					alloc.mark_size(p->bot_lft, p->split);
+				}else{
+					alloc.mark_size(last->bot_lft, last->split);
+				}
 				return p;
 			}
 		};
@@ -353,6 +375,10 @@ namespace mo_yanxi{
 			return node;
 		}
 
+		[[nodiscard]] bool is_fragment(const point_type& size) const noexcept {
+			return size.as<large_size_type>().area() <= fragment_threshold_.value;
+		}
+
 		std::optional<point_type> getValidNode(const extent_type size){
 			assert(size.area() > 0);
 
@@ -369,7 +395,7 @@ namespace mo_yanxi{
 		void mark_size(const point_type src, const point_type dst) noexcept{
 			const auto size = dst - src;
 
-			if (static_cast<std::uint64_t>(size.x) * size.y < fragment_threshold_.value) {
+			if (is_fragment(size)) {
 				frag_nodes_XY[size.x].insert({size.y, src});
 				frag_nodes_YX[size.y].insert({size.x, src});
 			} else {
@@ -391,7 +417,7 @@ namespace mo_yanxi{
 		void erase_mark(const point_type src, const point_type dst){
 			const auto size = dst - src;
 
-			if (static_cast<std::uint64_t>(size.x) * size.y < fragment_threshold_.value) {
+			if (is_fragment(size)) {
 				erase(frag_nodes_XY, src, size.x, size.y);
 				erase(frag_nodes_YX, src, size.y, size.x);
 			} else {
@@ -404,8 +430,8 @@ namespace mo_yanxi{
 		                  const size_type innerKey) noexcept{
 			auto& inner = map[outerKey];
 			auto [begin, end] = inner.equal_range(innerKey);
-			for(auto cur = begin; cur != end; ++cur){
-				if(cur->second == src){
+			for (auto cur = begin; cur != end; ++cur) {
+				if (cur->second == src) {
 					inner.erase(cur);
 					return;
 				}
@@ -413,25 +439,25 @@ namespace mo_yanxi{
 		}
 
 		void init_threshold(const extent_type extent) {
-			fragment_threshold_ = extent.as<std::uint64_t>().area() / 8;
+			if(!fragment_threshold_.value)fragment_threshold_ = std::max<large_size_type>(extent.as<large_size_type>().area() / 64, 96 * 96);
 		}
 
 	public:
 		[[nodiscard]] allocator2d() = default;
-		[[nodiscard]] explicit allocator2d(const allocator_type& allocator)
-			: map(allocator),
-			  large_nodes_XY(allocator), large_nodes_YX(allocator),
-			  frag_nodes_XY(allocator), frag_nodes_YX(allocator){
+		[[nodiscard]] explicit allocator2d(const allocator_type& allocator, large_size_type frag_thres = 0)
+			: fragment_threshold_(frag_thres),
+			  map(allocator), large_nodes_XY(allocator),
+			  large_nodes_YX(allocator), frag_nodes_XY(allocator), frag_nodes_YX(allocator){
 		}
 
-		[[nodiscard]] explicit allocator2d(const extent_type extent)
-			: extent_(extent), remain_area_(extent.area()){
+		[[nodiscard]] explicit allocator2d(const extent_type extent, large_size_type frag_thres = 0)
+			: extent_(extent), remain_area_(extent.area()), fragment_threshold_(frag_thres){
 			init_threshold(extent);
 			add_split({}, {}, extent);
 		}
 
-		[[nodiscard]] allocator2d(const allocator_type& allocator, const extent_type extent)
-			: extent_(extent), remain_area_(extent.area()), map(allocator),
+		[[nodiscard]] allocator2d(const allocator_type& allocator, const extent_type extent, large_size_type frag_thres = 0)
+			: extent_(extent), remain_area_(extent.area()), fragment_threshold_(frag_thres), map(allocator),
 			  large_nodes_XY(allocator), large_nodes_YX(allocator),
 			  frag_nodes_XY(allocator), frag_nodes_YX(allocator){
 			init_threshold(extent);
@@ -449,7 +475,7 @@ namespace mo_yanxi{
 			auto chamber_src = getValidNode(extent);
 			if(!chamber_src) return std::nullopt;
 
-			auto& chamber = map[chamber_src.value()];
+			auto& chamber = map.at(chamber_src.value());
 			chamber.acquire_and_split(*this, extent);
 			remain_area_.value -= extent.area();
 			return chamber_src.value();
@@ -458,8 +484,8 @@ namespace mo_yanxi{
 		bool deallocate(const point_type value) noexcept{
 			if(const auto itr = map.find(value); itr != map.end()){
 				const auto extent = (itr->second.split - value).area();
+				remain_area_.value += itr->second.used_extent.area();
 				itr->second.mark_idle(*this);
-				remain_area_.value += extent;
 				return true;
 			}
 
@@ -495,18 +521,19 @@ namespace mo_yanxi{
 	MO_YANXI_ALLOCATOR_2D_EXPORT
 	template <typename Alloc = std::allocator<std::byte>>
 	struct allocator2d_checked : allocator2d<Alloc>{
-
-		[[nodiscard]] explicit allocator2d_checked(const allocator2d<Alloc>::allocator_type& allocator)
-			: allocator2d<Alloc>(allocator){
+		[[nodiscard]] allocator2d_checked(const allocator2d<Alloc>::allocator_type& allocator,
+			allocator2d<Alloc>::large_size_type frag_thres = 0)
+			: allocator2d<Alloc>(allocator, frag_thres){
 		}
 
-		[[nodiscard]] explicit allocator2d_checked(const allocator2d<Alloc>::extent_type& extent)
-			: allocator2d<Alloc>(extent){
+		[[nodiscard]] allocator2d_checked(const allocator2d<Alloc>::extent_type& extent,
+			allocator2d<Alloc>::large_size_type frag_thres = 0)
+			: allocator2d<Alloc>(extent, frag_thres){
 		}
 
 		[[nodiscard]] allocator2d_checked(const allocator2d<Alloc>::allocator_type& allocator,
-			const allocator2d<Alloc>::extent_type& extent)
-			: allocator2d<Alloc>(allocator, extent){
+			const allocator2d<Alloc>::extent_type& extent, allocator2d<Alloc>::large_size_type frag_thres = 0)
+			: allocator2d<Alloc>(allocator, extent, frag_thres){
 		}
 
 		[[nodiscard]] allocator2d_checked() = default;
