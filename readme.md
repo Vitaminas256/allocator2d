@@ -86,6 +86,7 @@ void foo(){
 * The allocated area is never moved.
 
 ### Deallocate
+* Input the position obtained from `allocate`. 
 * Return false if the point is not a root of an allocated area in this allocator. Generally this is an error similar to _double free_ or `delete` a pointer that is not obtained from `operator new`, i.e. it should be treated as an assertion error.
 
 ### Copy Constructor/Assign Operator
