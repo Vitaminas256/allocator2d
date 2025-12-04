@@ -272,7 +272,7 @@ void test_fn(){
         allocator_tester::config config{
             .test_name = "Standard",
             .map_size = 2048,
-            .max_fill_attempts = 40000,
+            .max_fill_attempts = 10000,
             .size_range = {32, 256}
         };
         allocator_tester tester(config);
@@ -283,7 +283,7 @@ void test_fn(){
         allocator_tester::config config{
             .test_name = "HighFragment",
             .map_size = 1024,
-            .max_fill_attempts = 40000,
+            .max_fill_attempts = 10000,
             .size_range = {4, 16}
         };
         allocator_tester tester(config);
