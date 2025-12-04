@@ -417,9 +417,13 @@ namespace mo_yanxi{
 		void erase_mark(const point_type src, const point_type dst){
 			const auto size = dst - src;
 
+
+
 			if (is_fragment(size)) {
 				erase(frag_nodes_XY, src, size.x, size.y);
 				erase(frag_nodes_YX, src, size.y, size.x);
+
+
 			} else {
 				erase(large_nodes_XY, src, size.x, size.y);
 				erase(large_nodes_YX, src, size.y, size.x);
@@ -428,13 +432,22 @@ namespace mo_yanxi{
 
 		static void erase(tree_type& map, const point_type src, const size_type outerKey,
 		                  const size_type innerKey) noexcept{
-			auto& inner = map[outerKey];
+			auto itr = map.find(outerKey);
+			if(itr == map.end())return;
+
+			auto& inner = itr->second;
 			auto [begin, end] = inner.equal_range(innerKey);
+
 			for (auto cur = begin; cur != end; ++cur) {
 				if (cur->second == src) {
+					auto is_last = std::ranges::next(begin) == end;
 					inner.erase(cur);
+					if(is_last){
+						map.erase(itr);
+					}
 					return;
 				}
+
 			}
 		}
 
