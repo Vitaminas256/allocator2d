@@ -70,6 +70,10 @@ void foo(){
 
 </table>
 
+---
+
+* Using Clang 20.1, -O2
+
 <table>
     <thead>
         <tr>
