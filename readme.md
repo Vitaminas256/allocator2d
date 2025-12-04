@@ -65,9 +65,7 @@ void foo(){
                 <img src="readme_assets/HighFragment_03_refilled.png" width="100%" alt="HighFragment Refilled"/>
             </td>
         </tr>
-
     </tbody>
-
 </table>
 
 ---
