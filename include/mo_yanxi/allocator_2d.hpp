@@ -9,6 +9,7 @@
 import std;
 #else
 #include <utility>
+#include <version>
 #include <map>
 #include <unordered_map>
 #include <memory>
@@ -22,6 +23,14 @@ import std;
 #ifdef MO_YANXI_ALLOCATOR_2D_HAS_MATH_VECTOR2
 import mo_yanxi.math.vector2;
 #else
+
+#ifdef __cpp_static_call_operator
+#define MO_YANXI_ALLOCATOR_2D_CALL_STATIC static
+#define MO_YANXI_ALLOCATOR_2D_CALL_CONST
+#else
+#define MO_YANXI_ALLOCATOR_2D_CALL_STATIC
+#define MO_YANXI_ALLOCATOR_2D_CALL_CONST const
+#endif
 
 
 namespace mo_yanxi::math{
@@ -60,7 +69,7 @@ namespace mo_yanxi::math{
 
 template <typename T>
 struct std::hash<mo_yanxi::math::vector2<T>>{
-	std::size_t operator()(const mo_yanxi::math::vector2<T>& v) const noexcept{
+	MO_YANXI_ALLOCATOR_2D_CALL_STATIC std::size_t operator()(const mo_yanxi::math::vector2<T>& v) MO_YANXI_ALLOCATOR_2D_CALL_CONST noexcept{
 		std::size_t seed = 0;
 		auto hash_combine = [&seed](std::size_t v){
 			seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
@@ -312,7 +321,7 @@ namespace mo_yanxi{
 
 			}
 
-			split_point* mark_idle(allocator2d& alloc){
+			split_point* mark_idle(allocator2d& alloc) noexcept {
 				assert(!idle);
 				idle = true;
 				used_extent = {};
@@ -389,7 +398,7 @@ namespace mo_yanxi{
 			return find_node_in_tree_(large_nodes_xy_, large_nodes_yx_, size);
 		}
 
-		void mark_size_(const point_type src, const point_type dst) noexcept{
+		void mark_size_(const point_type src, const point_type dst){
 			const auto size = dst - src;
 
 			if (is_fragment_(size)) {
@@ -552,11 +561,9 @@ namespace mo_yanxi{
 			this->check_leak_();
 		}
 
-		allocator2d_checked(allocator2d_checked&& other) noexcept
-			: allocator2d<Alloc>{std::move(other)}{
-		}
+		allocator2d_checked(allocator2d_checked&& other) noexcept(std::is_nothrow_move_constructible_v<allocator2d<Alloc>>) = default;
 
-		allocator2d_checked& operator=(allocator2d_checked&& other) noexcept{
+		allocator2d_checked& operator=(allocator2d_checked&& other) noexcept(std::is_nothrow_move_assignable_v<allocator2d<Alloc>>){
 			if(this == &other) return *this;
 			this->check_leak_();
 			allocator2d<Alloc>::operator =(std::move(other));
@@ -570,3 +577,5 @@ namespace mo_yanxi{
 	};
 }
 #undef MO_YANXI_ALLOCATOR_2D_EXPORT
+#undef MO_YANXI_ALLOCATOR_2D_CALL_STATIC
+#undef MO_YANXI_ALLOCATOR_2D_CALL_CONST
