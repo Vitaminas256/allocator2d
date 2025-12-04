@@ -71,10 +71,10 @@ void foo(){
                 <img src="readme_assets/Aligned_01_allocated.png" width="100%" alt="Aligned Initial"/>
             </td>
             <td align="center">
-                <img src="readme_assets/HighFragment_02_fragmented.png" width="100%" alt="Aligned Partial"/>
+                <img src="readme_assets/Aligned_02_fragmented.png" width="100%" alt="Aligned Partial"/>
             </td>
             <td align="center">
-                <img src="readme_assets/HighFragment_03_refilled.png" width="100%" alt="Aligned Refilled"/>
+                <img src="readme_assets/Aligned_03_refilled.png" width="100%" alt="Aligned Refilled"/>
             </td>
         </tr>
     </tbody>
