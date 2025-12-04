@@ -1,6 +1,7 @@
 module;
 
 #include <cassert>
+#include <version>
 
 export module mo_yanxi.allocator_2d;
 
